@@ -22,10 +22,8 @@
 
 
 ### case编写
-以下case在位于case/test.py中
 
 #### sample case 1
-----
 假设要验证www.baidu.com的http status是200
 
 ```python
@@ -41,34 +39,12 @@ class TestCase1(TestCase):
 2. 执行`./crab -c testcase1`
 
 
-#### sample case 2
-----
-如果要检查的url很多，且已经列在一个文件中了，那么上述的case如何编写呢？需要如下两个操作:
-1. 在`class TestCase1(TestCase)`这一行之前添加`import lib.utils as utils`
-2. 把`self.urls.append("www.baidu.com")`这一行替换为`self.urls = utils.read_list_from_file(your_file_name)`
-
-
-#### sample case 3
-----
-如果除了检查url的http status还需要检查url对应的页面html标签是否完整
-
-```python
-from lib.base_case import TestCase
-from checker.http import HTTPStatusChecker
-class TestCase1(TestCase):
-    def __init__(self):
-        self.urls.append("www.baidu.com")
-        self.checkers.append(HTTPStatusChecker(200))
-        self.checkers.append(HTMLTagChecker())
-```
-
-如上代码所示，只需要在case1的基础上增加`self.checkers.append(HTMLTagChecker())`一行代码即可
-
+#### more sample cases
+更多的case编写示范见`case/test.py`文件
 
 
 
 ## 组织结构
-----
 crab整体分为三个部分：crab框架、检查器(checker)、测试用例
 
 
