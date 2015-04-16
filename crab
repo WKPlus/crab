@@ -1,0 +1,97 @@
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+
+
+"""
+crab main framework.
+
+@author: qifa.zhao@dianping.com
+@license: Copyright (c) 2013 Dianping.com, Inc. All Rights Reserved
+
+"""
+
+import os
+import sys
+HOME_PATH = os.path.abspath(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "./"))
+#from lib import mysocket
+#sys.modules["socket"] = mysocket
+from optparse import OptionParser
+import imp
+import types
+from lib.case import TestCase
+from lib.log import GLog
+#from lib.report import Report
+from twisted.internet import reactor
+from collections import deque
+
+
+class Crab(object):
+    def __init__(self, options):
+        self.cases = deque()
+        self.result = []
+        self.options = options
+        if self.options.verbose:
+            GLog.set_sh_debug()
+
+    def load_module(self, module):
+        #load target module
+        path = "./case/"
+        module_name = module.rsplit("/", 1)[-1]
+        if len(module.rsplit("/", 1)) == 2:
+            path = os.path.join(path, module.rsplit("/", 1)[0])
+        py_mod = imp.load_module(
+            module_name, *imp.find_module(module_name, [path]))
+        return py_mod
+
+    def import_testcase(self, module):
+        #load all testcases in specified module
+        ret = []
+        py_mod = self.load_module(module)
+        for attr in dir(py_mod):
+            attr_ref = getattr(py_mod, attr)
+            if isinstance(attr_ref, types.TypeType) and \
+               issubclass(attr_ref, TestCase) and attr != "TestCase":
+                ret.append(attr_ref())
+        return ret
+
+    def run(self):
+        for module in self.options.case.split(","):
+            self.cases.extend(self.import_testcase(module))
+
+        if not self.cases:
+            GLog.warning("No cases found, no need to run")
+            return 1
+        case = self.cases.popleft()
+        self.execute_testcase(case)
+        reactor.run()
+
+    def case_finish(self, case):
+        #每个case执行完成之后会调用该函数
+        #第一步：把执行完成的case记录下来
+        GLog.info("Case %s finished", case.__class__.__name__)
+        #第二步：获取下一个case执行，如果没有下一个case，停止reactor
+        try:
+            self.execute_testcase(self.cases.popleft())
+        except IndexError:
+            GLog.info("All testcases finished")
+            reactor.stop()
+
+    def execute_testcase(self, case):
+        GLog.info("Run testcase [%s] begin.", case.__class__.__name__)
+        ret = case.run(self.case_finish, self.options.jobs)
+
+
+if __name__ == "__main__":
+    parser = OptionParser(version="%prog 1.0.0")
+    parser.add_option("-c", "--case", action="store", dest="case",
+                      default="test", type="string",
+                      help="let scod load a case and run")
+    parser.add_option("-v", "--verbose", action="store_true", dest="verbose",
+                      default=False, help="let scod run in verbose model")
+    parser.add_option("-j", "--jobs", action="store", dest="jobs",
+                      default=0, type="int",
+                      help="connections can be established concurrently.")
+    options, args = parser.parse_args()
+    GLog.init('crab')
+    sys.exit(Crab(options).run())
